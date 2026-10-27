@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#212121">
+  <title>ChatGPT</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --sidebar: #171717;
+      --main: #212121;
+      --surface: #2f2f2f;
+      --surface-hover: #383838;
+      --text: #ececec;
+      --muted: #9b9b9b;
+      --line: #ffffff1a;
+      --accent: #10a37f;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--text); background: var(--main); }
+    button, textarea { font: inherit; }
+    button { color: inherit; }
+    .app { display: flex; width: 100%; height: 100vh; min-height: 520px; overflow: hidden; }
+    .sidebar {
+      width: 260px; flex: 0 0 260px; display: flex; flex-direction: column;
+      padding: 12px; background: var(--sidebar); transition: width .2s, flex-basis .2s;
+    }
+    .sidebar.collapsed { width: 0; flex-basis: 0; padding: 0; overflow: hidden; }
+    .sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 0 1px 18px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; }
+    .brand-mark svg { width: 25px; height: 25px; }
+    .icon-button {
+      width: 36px; height: 36px; padding: 0; display: inline-grid; place-items: center;
+      border: 0; border-radius: 9px; background: transparent; color: var(--text); cursor: pointer;
+    }
+    .icon-button:hover, .nav-item:hover, .chat-link:hover { background: var(--surface-hover); }
+    .icon-button svg { width: 19px; height: 19px; }
+    .new-chat {
+      width: 100%; min-height: 42px; display: flex; align-items: center; gap: 11px;
+      padding: 0 11px; border: 1px solid var(--line); border-radius: 10px;
+      background: transparent; text-align: left; cursor: pointer;
+    }
+    .new-chat:hover { background: var(--surface-hover); }
+    .nav-group { margin-top: 20px; }
+    .nav-item {
+      width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 11px;
+      border: 0; border-radius: 9px; background: transparent; color: var(--text);
+      text-align: left; cursor: pointer; font-size: 14px;
+    }
+    .nav-item svg { width: 18px; height: 18px; }
+    .history-label { padding: 23px 10px 8px; color: var(--muted); font-size: 12px; font-weight: 600; }
+    .history-list { overflow: auto; flex: 1; }
+    .chat-link {
+      display: block; width: 100%; overflow: hidden; padding: 9px 10px;
+      border: 0; border-radius: 8px; background: transparent; color: var(--text);
+      text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; font-size: 13px;
+    }
+    .chat-link.active { background: #ffffff12; }
+    .account {
+      display: flex; align-items: center; gap: 10px; padding: 11px 5px 3px;
+      border-top: 1px solid var(--line); font-size: 13px;
+    }
+    .avatar {
+      width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 30px;
+      border-radius: 50%; background: #a87945; color: white; font-size: 13px; font-weight: 600;
+    }
+    .account small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .main { position: relative; display: flex; flex: 1; min-width: 0; flex-direction: column; }
+    .topbar { height: 56px; flex: 0 0 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
+    .top-left, .top-right { display: flex; align-items: center; gap: 8px; }
+    .model-button { padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-size: 16px; font-weight: 600; }
+    .model-button:hover { background: var(--surface-hover); }
+    .model-button span { color: var(--muted); font-weight: 400; }
+    .share-button {
+      display: flex; align-items: center; gap: 7px; padding: 8px 12px;
+      border: 1px solid var(--line); border-radius: 20px; background: transparent; cursor: pointer; font-size: 13px;
+    }
+    .share-button:hover { background: var(--surface-hover); }
+    .share-button svg { width: 16px; height: 16px; }
+    .chat-area { display: flex; min-height: 0; flex: 1; flex-direction: column; align-items: center; }
+    .welcome {
+      width: min(100% - 32px, 768px); margin: auto; padding: 24px 0 38px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .welcome[hidden] { display: none; }
+    .welcome h1 { margin: 0 0 27px; font-size: clamp(25px, 3vw, 32px); font-weight: 600; letter-spacing: -.7px; }
+    .suggestions { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .suggestion {
+      min-height: 73px; display: flex; flex-direction: column; justify-content: center; gap: 4px;
+      padding: 13px 15px; border: 1px solid #ffffff20; border-radius: 14px;
+      background: transparent; text-align: left; cursor: pointer;
+    }
+    .suggestion:hover { background: #ffffff0a; }
+    .suggestion strong { font-size: 14px; font-weight: 500; }
+    .suggestion span { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .messages {
+      width: min(100% - 32px, 768px); flex: 1; overflow: auto; padding: 25px 0 22px;
+      display: none; flex-direction: column; gap: 25px; scrollbar-width: thin;
+    }
+    .messages.visible { display: flex; }
+    .message { display: flex; gap: 15px; align-items: flex-start; line-height: 1.65; font-size: 15px; }
+    .message.user { justify-content: flex-end; }
+    .message .bubble { max-width: min(80%, 620px); overflow-wrap: anywhere; }
+    .message.user .bubble { padding: 10px 16px; border-radius: 22px; background: var(--surface); }
+    .message.assistant .bubble { flex: 1; padding-top: 3px; white-space: pre-wrap; }
+    .assistant-icon {
+      width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 28px;
+      border: 1px solid var(--line); border-radius: 50%; color: #e7e7e7;
+    }
+    .assistant-icon svg { width: 18px; height: 18px; }
+    .typing { display: flex; gap: 5px; padding: 10px 0; }
+    .typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pulse 1s infinite alternate; }
+    .typing i:nth-child(2) { animation-delay: .2s; }
+    .typing i:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse { to { opacity: .25; transform: translateY(-3px); } }
+    .composer-wrap { width: min(100% - 32px, 768px); margin: 0 auto; padding-bottom: 8px; }
+    .attachment-preview { display: none; margin: 0 0 8px 9px; color: var(--muted); font-size: 12px; }
+    .attachment-preview.visible { display: block; }
+    .composer {
+      display: flex; align-items: flex-end; gap: 9px; padding: 10px 11px;
+      border: 1px solid #ffffff1f; border-radius: 26px; background: var(--surface);
+      box-shadow: 0 7px 25px #0000001a;
+    }
+    .composer:focus-within { border-color: #ffffff39; }
+    .composer .icon-button { flex: 0 0 36px; color: #c5c5c5; }
+    .composer textarea {
+      width: 100%; max-height: 180px; min-height: 36px; resize: none; padding: 8px 0;
+      border: 0; outline: 0; background: transparent; color: var(--text);
+      line-height: 20px; font-size: 15px;
+    }
+    .composer textarea::placeholder { color: #a0a0a0; }
+    .send-button {
+      width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center;
+      padding: 0; border: 0; border-radius: 50%; background: #f4f4f4; color: #171717; cursor: pointer;
+    }
+    .send-button:disabled { background: #676767; color: #282828; cursor: default; }
+    .send-button svg { width: 18px; height: 18px; }
+    .disclaimer { padding: 7px 0 10px; color: #a0a0a0; text-align: center; font-size: 11px; }
+    .file-input { display: none; }
+    .toast {
+      position: absolute; z-index: 3; top: 66px; left: 50%; transform: translateX(-50%);
+      display: none; padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px;
+      background: #303030; box-shadow: 0 8px 30px #0005; font-size: 13px;
+    }
+    .toast.visible { display: block; }
+    @media (max-width: 700px) {
+      .sidebar { position: absolute; z-index: 5; top: 0; bottom: 0; left: 0; width: 260px; box-shadow: 10px 0 30px #0005; }
+      .sidebar.collapsed { width: 0; }
+      .topbar { padding: 0 10px; }
+      .welcome { margin: auto; padding-bottom: 24px; }
+      .welcome h1 { margin-bottom: 22px; }
+      .suggestions { grid-template-columns: 1fr; gap: 8px; }
+      .suggestion { min-height: 58px; }
+      .suggestion:nth-child(n+3) { display: none; }
+      .messages, .composer-wrap, .welcome { width: calc(100% - 24px); }
+      .message { gap: 10px; }
+      .message .bubble { max-width: 88%; }
+      .share-button { padding: 8px; }
+      .share-button span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand-mark" aria-label="ChatGPT">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.2a4.3 4.3 0 0 1 4.1 3 4.3 4.3 0 0 1 3.5 6.1 4.3 4.3 0 0 1-2.2 7.3 4.3 4.3 0 0 1-7.2 1.6 4.3 4.3 0 0 1-6.2-3.4 4.3 4.3 0 0 1-.1-7.5 4.3 4.3 0 0 1 4.5-6.2A4.3 4.3 0 0 1 12 3.2Z" stroke="currentColor" stroke-width="1.45"/><path d="m8 6.5 7.8 4.5M5.2 10l7.8 4.5m-.8 6V11m5.2 5-7.8-4.5m10.4-1.6-7.8 4.5M8 17.5l7.8-4.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>
+        </div>
+        <button class="icon-button" id="collapse-sidebar" aria-label="Close sidebar" title="Close sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M9 4v16"/></svg>
+        </button>
+      </div>
+      <button class="new-chat" id="new-chat">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 5v14M5 12h14"/></svg>
+        <span>New chat</span>
+      </button>
+      <div class="nav-group">
+        <button class="nav-item" id="search-chats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg>
+          <span>Search chats</span>
+        </button>
+        <button class="nav-item" id="library-button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          <span>Library</span>
+        </button>
+      </div>
+      <div class="history-label">Your chats</div>
+      <div class="history-list" id="history-list"></div>
+      <div class="account">
+        <div class="avatar">U</div>
+        <div><strong>User</strong><small>Free plan</small></div>
+        <button class="icon-button" style="margin-left:auto" aria-label="Account options" title="Account options">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+        </button>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="top-left">
+          <button class="icon-button" id="open-sidebar" aria-label="Open sidebar" title="Open sidebar" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M9 4v16"/></svg>
+          </button>
+          <button class="model-button" id="model-button">ChatGPT <span>⌄</span></button>
+        </div>
+        <div class="top-right">
+          <button class="share-button" id="share-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+            <span>Share</span>
+          </button>
+          <button class="icon-button" id="more-button" aria-label="More options" title="More options">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="toast" id="toast" role="status"></div>
+      <section class="chat-area">
+        <div class="welcome" id="welcome">
+          <h1>What can I help with?</h1>
+          <div class="suggestions">
+            <button class="suggestion" data-prompt="Help me write a professional email"><strong>Write an email</strong><span>Make it clear and professional</span></button>
+            <button class="suggestion" data-prompt="Give me some creative ideas for a weekend"><strong>Get inspired</strong><span>Explore a few fresh ideas</span></button>
+            <button class="suggestion" data-prompt="Explain how the internet works in simple terms"><strong>Learn something</strong><span>Break down a tricky topic</span></button>
+            <button class="suggestion" data-prompt="Help me plan a simple, healthy dinner"><strong>Make a plan</strong><span>Turn an idea into next steps</span></button>
+          </div>
+        </div>
+        <div class="messages" id="messages" aria-live="polite"></div>
+        <div class="composer-wrap">
+          <div class="attachment-preview" id="attachment-preview"></div>
+          <form class="composer" id="composer">
+            <button type="button" class="icon-button" id="attach-button" aria-label="Attach file" title="Attach file">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 5-6.5 6.5a4.24 4.24 0 0 0 6 6L18 11a2.83 2.83 0 0 0-4-4l-6.5 6.5a1.41 1.41 0 0 0 2 2l5.5-5.5"/></svg>
+            </button>
+            <input class="file-input" id="file-input" type="file" accept=".txt,.md,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json">
+            <textarea id="prompt-input" rows="1" placeholder="Message ChatGPT" aria-label="Message ChatGPT"></textarea>
+            <button type="submit" class="send-button" id="send-button" aria-label="Send message" title="Send message" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5m-7 7 7-7 7 7"/></svg>
+            </button>
+          </form>
+          <div class="disclaimer">ChatGPT can make mistakes. Check important info.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const STORAGE_KEY = "chatgpt-clone-chats-v1";
+      const sidebar = document.getElementById("sidebar");
+      const openSidebar = document.getElementById("open-sidebar");
+      const historyList = document.getElementById("history-list");
+      const welcome = document.getElementById("welcome");
+      const messages = document.getElementById("messages");
+      const input = document.getElementById("prompt-input");
+      const sendButton = document.getElementById("send-button");
+      const attachmentPreview = document.getElementById("attachment-preview");
+      const fileInput = document.getElementById("file-input");
+      const toast = document.getElementById("toast");
+      let chats = loadChats();
+      let currentChatId = null;
+      let selectedFile = null;
+      let toastTimer;
+      let isResponding = false;
+
+      function loadChats() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          return Array.isArray(saved) ? saved : [];
+        } catch (error) {
+          console.error("Could not load saved chats.", error);
+          return [];
+        }
+      }
+
+      function saveChats() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+        } catch (error) {
+          console.error("Could not save chats.", error);
+          showToast("Couldn't save this chat in your browser.");
+        }
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("visible");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("visible"), 2400);
+      }
+
+      function renderHistory() {
+        historyList.replaceChildren();
+        chats.slice().reverse().forEach((chat) => {
+          const button = document.createElement("button");
+          button.className = "chat-link" + (chat.id === currentChatId ? " active" : "");
+          button.textContent = chat.title;
+          button.title = chat.title;
+          button.addEventListener("click", () => openChat(chat.id));
+          historyList.append(button);
+        });
+      }
+
+      function addMessage(role, text) {
+        const row = document.createElement("div");
+        row.className = "message " + role;
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = text;
+        if (role === "assistant") {
+          const icon = document.createElement("div");
+          icon.className = "assistant-icon";
+          icon.setAttribute("aria-label", "ChatGPT");
+          icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3.5a4 4 0 0 1 3.8 2.8 4 4 0 0 1 3.2 5.7 4 4 0 0 1-2 6.8 4 4 0 0 1-6.7 1.5 4 4 0 0 1-5.8-3.2 4 4 0 0 1-.1-7 4 4 0 0 1 4.2-5.8A4 4 0 0 1 12 3.5Z" stroke-linejoin="round"/><path d="m8.3 6.6 7.4 4.3M5.7 9.9l7.4 4.3m-.8 5.6v-8m4.9 4.7-7.4-4.3m9.8-1.5-7.4 4.3m-1.9 2.3 7.4-4.3" stroke-linecap="round"/></svg>';
+          row.append(icon, bubble);
+        } else {
+          row.append(bubble);
+        }
+        messages.append(row);
+        messages.scrollTop = messages.scrollHeight;
+        return row;
+      }
+
+      function openChat(id) {
+        const chat = chats.find((item) => item.id === id);
+        if (!chat) return;
+        currentChatId = id;
+        welcome.hidden = true;
+        messages.classList.add("visible");
+        messages.replaceChildren();
+        chat.messages.forEach((message) => addMessage(message.role, message.text));
+        renderHistory();
+      }
+
+      function newChat() {
+        currentChatId = null;
+        messages.replaceChildren();
+        messages.classList.remove("visible");
+        welcome.hidden = false;
+        input.value = "";
+        input.style.height = "auto";
+        selectedFile = null;
+        attachmentPreview.classList.remove("visible");
+        attachmentPreview.textContent = "";
+        updateSendButton();
+        renderHistory();
+        input.focus();
+        if (window.innerWidth <= 700) sidebar.classList.add("collapsed");
+      }
+
+      function updateSendButton() {
+        sendButton.disabled = isResponding || (!input.value.trim() && !selectedFile);
+      }
+
+      async function submitMessage(text) {
+        if (isResponding) return;
+        const trimmed = text.trim();
+        if (!trimmed && !selectedFile) return;
+        const userText = (trimmed || "Please take a look at this file.") +
+          (selectedFile ? "\n\nAttached file (" + selectedFile.name + "):\n" + selectedFile.content : "");
+        if (!currentChatId) {
+          currentChatId = String(Date.now());
+          chats.push({ id: currentChatId, title: trimmed.slice(0, 36) || selectedFile.name, messages: [] });
+        }
+        const chat = chats.find((item) => item.id === currentChatId);
+        chat.messages.push({ role: "user", text: userText });
+        addMessage("user", userText);
+        welcome.hidden = true;
+        messages.classList.add("visible");
+        input.value = "";
+        input.style.height = "auto";
+        selectedFile = null;
+        attachmentPreview.textContent = "";
+        attachmentPreview.classList.remove("visible");
+        updateSendButton();
+        renderHistory();
+        saveChats();
+
+        const typing = document.createElement("div");
+        typing.className = "message assistant";
+        typing.innerHTML = '<div class="assistant-icon" aria-label="ChatGPT">✳</div><div class="typing"><i></i><i></i><i></i></div>';
+        messages.append(typing);
+        messages.scrollTop = messages.scrollHeight;
+        isResponding = true;
+        updateSendButton();
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: chat.messages.map((message) => ({
+                role: message.role,
+                text: message.text,
+              })),
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "The AI could not answer. Please try again.");
+          const reply = result.reply;
+          if (typeof reply !== "string" || !reply.trim()) {
+            throw new Error("The AI returned an empty reply. Please try again.");
+          }
+          chat.messages.push({ role: "assistant", text: reply.trim() });
+          if (currentChatId === chat.id) addMessage("assistant", reply.trim());
+          saveChats();
+        } catch (error) {
+          typing.remove();
+          const errorMessage = error instanceof TypeError
+            ? "Couldn't reach the chat server. Start it with `npm start` and open http://localhost:3000."
+            : error.message;
+          if (currentChatId === chat.id) {
+            addMessage("assistant", "Sorry, I couldn't get a reply: " + errorMessage);
+          }
+          console.error("Chat request failed.", error);
+        } finally {
+          typing.remove();
+          isResponding = false;
+          updateSendButton();
+        }
+      }
+
+      document.getElementById("new-chat").addEventListener("click", newChat);
+      document.getElementById("collapse-sidebar").addEventListener("click", () => {
+        sidebar.classList.add("collapsed");
+        openSidebar.style.display = "inline-grid";
+      });
+      openSidebar.addEventListener("click", () => {
+        sidebar.classList.remove("collapsed");
+        openSidebar.style.display = "none";
+      });
+      document.getElementById("composer").addEventListener("submit", (event) => {
+        event.preventDefault();
+        submitMessage(input.value);
+      });
+      input.addEventListener("input", () => {
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 180) + "px";
+        updateSendButton();
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          if (!sendButton.disabled) submitMessage(input.value);
+        }
+      });
+      document.querySelectorAll(".suggestion").forEach((button) => {
+        button.addEventListener("click", () => submitMessage(button.dataset.prompt || ""));
+      });
+      document.getElementById("attach-button").addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        const supportedExtension = /\.(txt|md|csv|json|log)$/i.test(file.name);
+        if (!supportedExtension && !file.type.startsWith("text/") && file.type !== "application/json") {
+          showToast("Attach a text, Markdown, CSV, JSON, or log file.");
+          fileInput.value = "";
+          return;
+        }
+        if (file.size > 8 * 1024) {
+          showToast("Text attachments must be 8 KB or smaller.");
+          fileInput.value = "";
+          return;
+        }
+        try {
+          selectedFile = { name: file.name, content: await file.text() };
+          attachmentPreview.textContent = "Attached: " + selectedFile.name;
+          attachmentPreview.classList.add("visible");
+          updateSendButton();
+        } catch (error) {
+          console.error("Could not read the selected attachment.", error);
+          showToast("Couldn't read that file. Please try another one.");
+        } finally {
+          fileInput.value = "";
+        }
+      });
+      document.getElementById("search-chats").addEventListener("click", () => {
+        const query = window.prompt("Search your chats");
+        if (query === null) return;
+        const match = chats.slice().reverse().find((chat) => chat.title.toLowerCase().includes(query.toLowerCase()));
+        if (match) openChat(match.id);
+        else showToast(query.trim() ? "No matching chats found." : "Type a title to search your chats.");
+      });
+      document.getElementById("library-button").addEventListener("click", () => showToast("Your library is ready for future uploads."));
+      document.getElementById("model-button").addEventListener("click", () => showToast("ChatGPT"));
+      document.getElementById("more-button").addEventListener("click", () => showToast("More options"));
+      document.getElementById("share-button").addEventListener("click", async () => {
+        if (!currentChatId) {
+          showToast("Start a chat before sharing.");
+          return;
+        }
+        try {
+          const chat = chats.find((item) => item.id === currentChatId);
+          await navigator.clipboard.writeText(chat.messages.map((message) =>
+            (message.role === "user" ? "You: " : "ChatGPT: ") + message.text
+          ).join("\n\n"));
+          showToast("Conversation copied to clipboard.");
+        } catch (error) {
+          console.error("Could not copy the share link.", error);
+          showToast("Couldn't copy the link. Check your browser permissions.");
+        }
+      });
+      renderHistory();
+    })();
+  </script>
+</body>
+</html>
