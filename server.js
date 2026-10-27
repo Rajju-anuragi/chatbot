@@ -7,7 +7,7 @@ const PORT = Number(process.env.PORT || 3000);
 const MAX_BODY_BYTES = 512 * 1024;
 const MAX_MESSAGES = 20;
 const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
-const FALLBACK_GEMINI_MODEL = "gemini-3.6-flash";
+const FALLBACK_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 function loadEnvironment() {
   const envPath = path.join(ROOT, ".env");
